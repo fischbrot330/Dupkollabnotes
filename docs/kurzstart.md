@@ -30,16 +30,59 @@ Ergebnis:
 
 ## Ausrollen ueber GitHub Releases
 
-1. Aenderungen committen und pushen.
-2. Tag erstellen und pushen (Beispiel):
+Der Workflow `.github/workflows/desktop-release.yml` startet automatisch bei Tags, die mit `v` beginnen (`v*`).
+
+Beispiel:
+- `v0.2.0` startet den Release-Build.
+- `0.2.0` startet den Release-Build nicht.
+
+### Schritt-fuer-Schritt: Tag + Desktop Release
+
+1. Aenderungen committen und den Branch pushen.
+2. Version waehlen (empfohlen SemVer):
+	- Patch: `v0.2.1` (Bugfix)
+	- Minor: `v0.3.0` (neue Features)
+	- Major: `v1.0.0` (Breaking Changes)
+3. Tag lokal erstellen und zu GitHub pushen:
 
 ```powershell
-git tag v0.2.0
+git tag -a v0.2.0 -m "SynkNote Release v0.2.0"
 git push origin v0.2.0
 ```
 
-3. GitHub-Workflow `Desktop Release` baut automatisch das Release-ZIP.
-4. Im GitHub Release `SynkNote-win64.zip` herunterladen und verteilen.
+4. In GitHub unter Actions pruefen, dass `Desktop Release` durchgelaufen ist.
+5. Im zugehoerigen GitHub Release liegt danach `SynkNote-win64.zip` als Download.
+6. ZIP an Kolleg:innen verteilen (Download-Link oder direktes Weiterreichen).
+
+### Woran erkennst du, dass alles geklappt hat?
+
+- Actions-Run ist gruen (Status `Success`).
+- Im Release gibt es das Asset `SynkNote-win64.zip`.
+- Nach Entpacken startet `SynkNote.exe` ohne Installation.
+
+### Typische Fehlerquellen
+
+- Tag ohne `v` Prefix (z. B. `0.2.0`) -> Workflow wird nicht automatisch gestartet.
+- Tag wurde lokal erstellt, aber nicht gepusht -> kein GitHub Build.
+- Falscher Commit getaggt -> neuen Tag setzen oder alten Tag auf den richtigen Commit verschieben.
+
+### Tag korrigieren (falls noetig)
+
+```powershell
+# Lokalen Tag loeschen
+git tag -d v0.2.0
+
+# Remote Tag loeschen
+git push origin :refs/tags/v0.2.0
+
+# Tag auf korrektem Commit neu erstellen und pushen
+git tag -a v0.2.0 -m "SynkNote Release v0.2.0"
+git push origin v0.2.0
+```
+
+### Manueller Start ohne neuen Tag
+
+Alternativ kannst du in GitHub unter Actions den Workflow `Desktop Release` per `Run workflow` manuell starten.
 
 ## Browser-Dev-Modus (nur Entwicklung)
 

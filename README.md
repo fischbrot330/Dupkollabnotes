@@ -34,11 +34,24 @@ Es gibt einen Workflow unter `.github/workflows/desktop-release.yml`.
 
 ### Empfohlener Rollout ueber GitHub (ohne Adminrechte auf Ziel-PCs)
 
+Der Workflow wird durch Tags im Format `v*` ausgeloest (z. B. `v0.2.0`).
+
 1. Lokale Aenderungen committen und pushen.
-2. Release-Tag setzen und pushen: `git tag v0.2.0` und `git push origin v0.2.0`.
+2. Release-Tag erstellen und pushen:
+	- `git tag -a v0.2.0 -m "SynkNote Release v0.2.0"`
+	- `git push origin v0.2.0`
 3. Workflow `Desktop Release` laeuft automatisch auf GitHub.
 4. Im GitHub Release steht danach `SynkNote-win64.zip` als Download bereit.
 5. Kolleg:innen laden ZIP, entpacken und starten `SynkNote.exe`.
+
+Kurzcheck nach dem Tag-Push:
+- Actions-Run ist `Success`.
+- Release-Asset `SynkNote-win64.zip` ist vorhanden.
+
+Falls der Build nicht startet:
+- Pruefen, ob der Tag mit `v` beginnt.
+- Pruefen, ob der Tag wirklich zu GitHub gepusht wurde.
+- Optional den Workflow manuell per `workflow_dispatch` starten.
 
 ## Ziele
 
