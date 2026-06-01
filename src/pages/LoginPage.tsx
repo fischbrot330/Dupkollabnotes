@@ -32,11 +32,14 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex items-center justify-center mb-8 gap-3">
-          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-white font-bold text-lg">
-            D
-          </div>
+          <img
+            src="/logo.png"
+            alt="SynkNote"
+            className="w-10 h-10 object-contain"
+            draggable={false}
+          />
           <div>
-            <h1 className="text-xl font-bold text-text-primary">Notes</h1>
+            <h1 className="text-xl font-bold text-text-primary">SynkNote</h1>
             <p className="text-xs text-text-muted">Team-Notizen & Projekte</p>
           </div>
         </div>

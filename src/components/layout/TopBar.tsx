@@ -14,7 +14,7 @@ const TITLES: Record<string, string> = {
 export function TopBar() {
   const { pathname } = useLocation();
   const user = useAppStore((s) => s.currentUser);
-  const title = TITLES[pathname] ?? "Notes";
+  const title = TITLES[pathname] ?? "SynkNote";
 
   return (
     <header className="flex items-center justify-between h-12 px-4 bg-bg-surface border-b border-border shrink-0">

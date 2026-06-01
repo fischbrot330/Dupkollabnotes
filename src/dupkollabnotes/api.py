@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -29,7 +31,7 @@ svc = AppService(db_manager)
 
 SYSTEM_CATEGORIES = ("Aufgabe", "Update", "Misc", "Kommentar", "Feedback", "Meeting Notes", "Milestone")
 
-app = FastAPI(title="Notes API")
+app = FastAPI(title="SynkNote API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -1598,6 +1600,31 @@ def advanced_search(data: AdvancedSearchInput):
 # Static Files (React-Build) – wird am Ende gemountet damit /api Vorrang hat
 # ---------------------------------------------------------------------------
 
-_DIST = Path(__file__).parent.parent.parent / "dist"
+def _resolve_dist_dir() -> Path:
+    env_dir = os.getenv("DUPKOLLABNOTES_DIST_DIR")
+    if env_dir:
+        candidate = Path(env_dir).expanduser().resolve()
+        if candidate.exists():
+            return candidate
+
+    module_dist = Path(__file__).parent.parent.parent / "dist"
+    if module_dist.exists():
+        return module_dist
+
+    cwd_dist = Path.cwd() / "dist"
+    if cwd_dist.exists():
+        return cwd_dist
+
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        base = Path(meipass)
+        for candidate in (base / "dist", base.parent / "dist"):
+            if candidate.exists():
+                return candidate
+
+    return module_dist
+
+
+_DIST = _resolve_dist_dir()
 if _DIST.exists():
     app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="static")

@@ -2,7 +2,7 @@
 
 ## Zielbild
 
-DupKollabNotes ist als lokale Client-Server-Anwendung gedacht, die von mehreren Teammitgliedern gegen dieselbe SQLite-Datei auf einem Netzlaufwerk verwendet werden kann. Ein FastAPI-Backend stellt die Daten bereit, das React/Vite-Frontend wird im Browser aufgerufen.
+SynkNote ist als lokale Client-Server-Anwendung gedacht, die von mehreren Teammitgliedern gegen dieselbe SQLite-Datei auf einem Netzlaufwerk verwendet werden kann. Ein FastAPI-Backend stellt die Daten bereit, das React/Vite-Frontend laeuft im Browser (Dev) oder im eingebetteten Desktop-Fenster (Release).
 
 ## Geplante Schichten
 

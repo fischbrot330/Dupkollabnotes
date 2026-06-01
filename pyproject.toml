@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dupkollabnotes"
+name = "synknote"
 version = "0.1.0"
-description = "Lokale kollaborative Markdown-Notiz-App fuer Teamarbeit"
+description = "SynkNote - lokale kollaborative Markdown-Notiz-App fuer Teamarbeit"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -15,11 +15,19 @@ dependencies = [
   "markdown>=3.7",
   "bleach>=6.1",
   "jinja2>=3.1",
+  "pywebview>=5.1",
   "pywin32>=306; platform_system == 'Windows'",
+]
+
+[project.optional-dependencies]
+build = [
+  "pyinstaller>=6.10",
+  "pillow>=10.4",
 ]
 
 [project.scripts]
 dupkollabnotes = "dupkollabnotes.main:main"
+dupkollabnotes-desktop = "dupkollabnotes.desktop:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

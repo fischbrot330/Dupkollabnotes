@@ -1,0 +1,88 @@
+name: Desktop Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[build]"
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Generate app icon
+        run: python scripts/make_icon.py
+
+      - name: Build portable desktop app
+        run: |
+          pyinstaller --noconfirm --clean --name SynkNote --windowed --icon .\build-assets\synknote.ico --collect-all webview --add-data "dist;dist" --paths src src/dupkollabnotes/desktop.py
+
+      - name: Create release zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Copy-Item dist\SynkNote release\SynkNote-win64 -Recurse -Force
+          Copy-Item README.md release\SynkNote-win64\README.md -Force
+          if (Test-Path docs\kurzstart.md) {
+            Copy-Item docs\kurzstart.md release\SynkNote-win64\KURZSTART.md -Force
+          }
+          $androidJar = 'release\SynkNote-win64\_internal\webview\lib\pywebview-android.jar'
+          if (Test-Path $androidJar) {
+            Remove-Item $androidJar -Force -ErrorAction SilentlyContinue
+          }
+
+          $zipPath = 'release\SynkNote-win64.zip'
+          $done = $false
+          for ($attempt = 1; $attempt -le 3 -and -not $done; $attempt++) {
+            try {
+              if (Test-Path $zipPath) {
+                Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+              }
+              Compress-Archive -Path release\SynkNote-win64\* -DestinationPath $zipPath -Force
+              $done = $true
+            }
+            catch {
+              if ($attempt -eq 3) {
+                throw
+              }
+              [System.Threading.Thread]::Sleep(800)
+            }
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SynkNote-win64
+          path: release\SynkNote-win64.zip
+
+      - name: Publish GitHub release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release\SynkNote-win64.zip

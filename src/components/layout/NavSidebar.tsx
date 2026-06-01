@@ -24,9 +24,12 @@ export function NavSidebar() {
     <aside className="flex flex-col w-14 h-full bg-bg-surface border-r border-border shrink-0">
       {/* Logo */}
       <div className="flex items-center justify-center h-12 border-b border-border shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-white font-bold text-sm select-none">
-          N
-        </div>
+        <img
+          src="/logo.png"
+          alt="SynkNote"
+          className="w-8 h-8 object-contain select-none"
+          draggable={false}
+        />
       </div>
 
       {/* Nav links */}
