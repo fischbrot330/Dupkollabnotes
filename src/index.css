@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: #0c0e14;
+    color: #e2e8f0;
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #374060; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4a5580; }
+}
+
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-sm {
+    @apply btn px-2.5 py-1 text-xs;
+  }
+  .btn-md {
+    @apply btn px-3.5 py-1.5 text-sm;
+  }
+  .btn-primary {
+    @apply bg-accent hover:bg-accent-hover text-white;
+  }
+  .btn-ghost {
+    @apply bg-transparent hover:bg-bg-hover text-text-secondary hover:text-text-primary;
+  }
+  .btn-danger {
+    @apply bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300;
+  }
+  .btn-outline {
+    @apply border border-border hover:bg-bg-hover text-text-secondary hover:text-text-primary;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full rounded-md bg-bg-surface border border-border px-3 py-1.5 text-sm
+           text-text-primary placeholder:text-text-muted
+           focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50
+           transition-colors;
+  }
+  .input-sm {
+    @apply input px-2.5 py-1 text-xs;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-bg-elevated rounded-lg border border-border;
+  }
+
+  /* Sidebar item */
+  .nav-item {
+    @apply flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-text-secondary
+           hover:bg-bg-hover hover:text-text-primary cursor-pointer transition-colors;
+  }
+  .nav-item.active {
+    @apply bg-accent-muted text-accent font-medium;
+  }
+}
+
+/* MDEditor dark theme overrides */
+.wmde-markdown {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+  font-family: "Inter", system-ui, sans-serif !important;
+}
+.wmde-markdown h1,
+.wmde-markdown h2,
+.wmde-markdown h3,
+.wmde-markdown h4 {
+  color: #f1f5f9 !important;
+  border-color: #252b40 !important;
+}
+.wmde-markdown code {
+  background: #1a1e2a !important;
+  color: #a5b4fc !important;
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}
+.wmde-markdown pre > code {
+  padding: 0 !important;
+}
+.wmde-markdown pre {
+  background: #13161e !important;
+  border: 1px solid #252b40 !important;
+  border-radius: 8px !important;
+}
+.wmde-markdown blockquote {
+  border-left-color: #6366f1 !important;
+  color: #94a3b8 !important;
+}
+.wmde-markdown a {
+  color: #818cf8 !important;
+}
+.wmde-markdown table thead tr {
+  background: #1a1e2a !important;
+}
+.wmde-markdown table tr {
+  border-color: #252b40 !important;
+}
+.wmde-markdown table tr:nth-child(odd) {
+  background: #12151f !important;
+}
+.wmde-markdown hr {
+  border-color: #252b40 !important;
+}
+
+/* Editor pane */
+.w-md-editor {
+  background: #12151f !important;
+  border: 1px solid #252b40 !important;
+  border-radius: 8px !important;
+}
+.w-md-editor-toolbar {
+  background: #13161e !important;
+  border-bottom: 1px solid #252b40 !important;
+}
+.w-md-editor-toolbar li > button {
+  color: #94a3b8 !important;
+}
+.w-md-editor-toolbar li > button:hover {
+  color: #e2e8f0 !important;
+  background: #1e2335 !important;
+}
+.w-md-editor-text {
+  color: #e2e8f0 !important;
+}
+.w-md-editor-preview {
+  background: #12151f !important;
+  border-left: 1px solid #252b40 !important;
+}

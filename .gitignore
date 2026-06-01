@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environments
+.venv/
+.venv-1/
+
+# Build artifacts
+build/
+dist/
+
+# Frontend
+node_modules/
+
+# Tauri build output
+src-tauri/target/
+
+# Local archive folder
+archive/
+
+# Logs
+*.log
