@@ -112,6 +112,16 @@ export function NotesPage() {
     }
   }
 
+  async function handleAiApplyContent(noteId: number, content: string) {
+    await api.updateNote(noteId, { content });
+    const refreshed = await api.listNotes(filter);
+    setNotes(refreshed);
+    if (selectedNote?.id === noteId) {
+      const updated = await api.getNote(noteId, currentUser?.id ?? null);
+      setSelected(updated);
+    }
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar: filterable notes list */}
@@ -133,8 +143,10 @@ export function NotesPage() {
           <NoteViewer
             note={selectedNote}
             currentUserId={currentUser?.id ?? null}
+            canUseAiFunctions={Boolean(currentUser?.can_use_ai_functions)}
             onEdit={() => setShowModal("edit")}
             onDelete={handleDelete}
+            onAiApplyContent={handleAiApplyContent}
             onCompleteTask={handleCompleteTask}
             onOpenProject={(projectId) => navigate(`/projects?projectId=${projectId}`)}
             onArchiveToggle={handleArchiveToggle}

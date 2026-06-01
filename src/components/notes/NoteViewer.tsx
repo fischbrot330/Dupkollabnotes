@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import { Archive, Mail, Pencil, Trash2, Pin, FileText } from "lucide-react";
-import type { NoteDetail } from "../../types";
+import type { AiPrompt, NoteDetail } from "../../types";
 import { Badge } from "../common/Badge";
 import * as api from "../../api";
+import { Modal } from "../common/Modal";
 
 function fmtDt(iso: string) {
   return new Date(iso).toLocaleString("de-DE", {
@@ -13,14 +15,27 @@ function fmtDt(iso: string) {
 interface Props {
   note: NoteDetail | null;
   currentUserId: number | null;
+  canUseAiFunctions?: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onAiApplyContent?: (noteId: number, content: string) => Promise<void>;
   onCompleteTask?: (noteId: number) => void;
   onOpenProject?: (projectId: number) => void;
   onArchiveToggle?: (noteId: number) => void;
 }
 
-export function NoteViewer({ note, currentUserId, onEdit, onDelete, onCompleteTask, onOpenProject, onArchiveToggle }: Props) {
+export function NoteViewer({ note, currentUserId, canUseAiFunctions = false, onEdit, onDelete, onAiApplyContent, onCompleteTask, onOpenProject, onArchiveToggle }: Props) {
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiPrompts, setAiPrompts] = useState<AiPrompt[]>([]);
+  const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
+  const [previewContent, setPreviewContent] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    if (!showAiModal || !currentUserId) return;
+    api.listAiPrompts(currentUserId).then(setAiPrompts).catch(() => setAiPrompts([]));
+  }, [showAiModal, currentUserId]);
+
   if (!note) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-text-muted select-none">
@@ -39,6 +54,30 @@ export function NoteViewer({ note, currentUserId, onEdit, onDelete, onCompleteTa
     } catch (e) {
       window.alert(`Outlook-Mail konnte nicht geöffnet werden: ${String(e)}`);
     }
+  }
+
+  async function generateAiPreview() {
+    if (!currentUserId || !selectedPromptId || !note) return;
+    setAiLoading(true);
+    try {
+      const result = await api.processNoteWithAi({
+        user_id: currentUserId,
+        prompt_id: selectedPromptId,
+        content: note.content,
+      });
+      setPreviewContent(result.processed_content);
+    } catch (e) {
+      window.alert(String(e));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function applyAiContent() {
+    if (!note || !previewContent.trim() || !onAiApplyContent) return;
+    await onAiApplyContent(note.id, previewContent);
+    setShowAiModal(false);
+    setPreviewContent("");
   }
 
   return (
@@ -104,6 +143,11 @@ export function NoteViewer({ note, currentUserId, onEdit, onDelete, onCompleteTa
               <button onClick={openInOutlook} className="btn-sm btn-ghost" title="Als Outlook-Mail öffnen">
                 <Mail size={13} /> Mail
               </button>
+              {canUseAiFunctions && (
+                <button onClick={() => setShowAiModal(true)} className="btn-sm btn-ghost" title="Notiz mit AI verarbeiten">
+                  AI
+                </button>
+              )}
               <button onClick={onEdit} className="btn-sm btn-primary">
                 <Pencil size={13} /> Bearbeiten
               </button>
@@ -129,6 +173,31 @@ export function NoteViewer({ note, currentUserId, onEdit, onDelete, onCompleteTa
           style={{ background: "transparent" }}
         />
       </div>
+      {showAiModal && (
+        <Modal title="Notiz mit AI verarbeiten" onClose={() => setShowAiModal(false)} width="max-w-3xl">
+          <div className="p-5 space-y-3">
+            <select
+              className="input"
+              value={selectedPromptId ?? ""}
+              onChange={(e) => setSelectedPromptId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Prompt wählen…</option>
+              {aiPrompts.map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.name}</option>)}
+            </select>
+            <button onClick={generateAiPreview} disabled={aiLoading || !selectedPromptId} className="btn-sm btn-primary">
+              {aiLoading ? "Erzeuge Vorschau…" : "Vorschau erzeugen"}
+            </button>
+            <div>
+              <label className="text-xs text-text-muted block mb-1">Vorschau</label>
+              <textarea className="input resize-none" rows={12} value={previewContent} onChange={(e) => setPreviewContent(e.target.value)} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 px-5 py-3 border-t border-border bg-bg-surface rounded-b-xl">
+            <button onClick={() => setShowAiModal(false)} className="btn-sm btn-ghost">Abbrechen</button>
+            <button onClick={applyAiContent} disabled={!previewContent.trim()} className="btn-sm btn-primary">In Notiz übernehmen</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -105,6 +105,32 @@ def _ensure_system_categories() -> None:
 _ensure_system_categories()
 
 
+def _require_existing_user(user_id: int | None):
+    effective_user_id = user_id if user_id is not None else AppSettings.load().active_user_id
+    if effective_user_id is None:
+        raise HTTPException(status_code=403, detail="Benutzerkontext fehlt")
+    from .core.models import User
+    with svc.session() as session:
+        user = session.get(User, effective_user_id)
+        if not user or not user.is_active:
+            raise HTTPException(status_code=403, detail="Benutzer nicht gefunden oder inaktiv")
+        return user
+
+
+def _require_admin_user(user_id: int | None):
+    user = _require_existing_user(user_id)
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Nur Admins dürfen diese Änderung vornehmen")
+    return user
+
+
+def _require_ai_enabled_user(user_id: int | None):
+    user = _require_existing_user(user_id)
+    if not user.can_use_ai_functions:
+        raise HTTPException(status_code=403, detail="AI-Funktionen sind für diesen Benutzer nicht freigeschaltet")
+    return user
+
+
 # ---------------------------------------------------------------------------
 # Pydantic-Schemas (Eingabe)
 # ---------------------------------------------------------------------------
@@ -211,6 +237,8 @@ class CreateUserInput(BaseModel):
     can_manage_projects: bool = False
     can_manage_templates: bool = False
     can_manage_users: bool = False
+    can_use_ai_functions: bool | None = None
+    acting_user_id: int | None = None
     password: str | None = None
 
 class UpdateUserInput(BaseModel):
@@ -221,6 +249,8 @@ class UpdateUserInput(BaseModel):
     can_manage_projects: bool | None = None
     can_manage_templates: bool | None = None
     can_manage_users: bool | None = None
+    can_use_ai_functions: bool | None = None
+    acting_user_id: int | None = None
     password: str | None = None
 
 class CreateProjectInput(BaseModel):
@@ -385,6 +415,26 @@ class CreateTemplateInput(BaseModel):
 class UpdateSettingsInput(BaseModel):
     database_path: str
     theme: str = "midnight"
+    llm_model_path: str = ""
+    acting_user_id: int | None = None
+
+
+class AiPromptInput(BaseModel):
+    user_id: int
+    name: str
+    content: str
+
+
+class AiPromptUpdateInput(BaseModel):
+    user_id: int
+    name: str
+    content: str
+
+
+class AiNoteProcessInput(BaseModel):
+    user_id: int
+    prompt_id: int
+    content: str
 
 
 class CompleteTaskInput(BaseModel):
@@ -400,6 +450,9 @@ def login(data: AuthInput):
     user = svc.authenticate(data.username, data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Ungültige Anmeldedaten")
+    s = AppSettings.load()
+    s.active_user_id = user.id
+    s.save()
     return _model_to_dict(user)
 
 @app.post("/api/auth/change-password")
@@ -1152,6 +1205,9 @@ def list_users():
 
 @app.post("/api/users")
 def create_user(data: CreateUserInput):
+    can_use_ai_functions = data.can_use_ai_functions if data.can_use_ai_functions is not None else False
+    if data.can_use_ai_functions is not None:
+        _require_admin_user(data.acting_user_id)
     user = svc.upsert_user(
         None,
         username=data.username,
@@ -1161,6 +1217,7 @@ def create_user(data: CreateUserInput):
         can_manage_projects=data.can_manage_projects,
         can_manage_templates=data.can_manage_templates,
         can_manage_users=data.can_manage_users,
+        can_use_ai_functions=can_use_ai_functions,
         password=data.password,
     )
     return _model_to_dict(user)
@@ -1172,6 +1229,8 @@ def update_user(user_id: int, data: UpdateUserInput):
         existing = session.get(User, user_id)
         if not existing:
             raise HTTPException(404, "Benutzer nicht gefunden")
+    if data.can_use_ai_functions is not None:
+        _require_admin_user(data.acting_user_id)
     user = svc.upsert_user(
         user_id,
         username=data.username or existing.username,
@@ -1181,6 +1240,7 @@ def update_user(user_id: int, data: UpdateUserInput):
         can_manage_projects=data.can_manage_projects if data.can_manage_projects is not None else existing.can_manage_projects,
         can_manage_templates=data.can_manage_templates if data.can_manage_templates is not None else existing.can_manage_templates,
         can_manage_users=data.can_manage_users if data.can_manage_users is not None else existing.can_manage_users,
+        can_use_ai_functions=data.can_use_ai_functions if data.can_use_ai_functions is not None else existing.can_use_ai_functions,
         password=data.password,
     )
     return _model_to_dict(user)
@@ -1413,27 +1473,94 @@ def list_all_milestones(data: MilestoneAllFilterInput):
     return [_note_summary(n) for n in milestones if _can_view_note(n, data.viewer_id)]
 
 
+@app.get("/api/ai/prompts")
+def list_ai_prompts(user_id: int):
+    _require_ai_enabled_user(user_id)
+    prompts = svc.list_ai_prompts(user_id)
+    return [_model_to_dict(prompt) for prompt in prompts]
+
+
+@app.post("/api/ai/prompts")
+def create_ai_prompt(data: AiPromptInput):
+    _require_ai_enabled_user(data.user_id)
+    prompt = svc.save_ai_prompt(
+        None,
+        user_id=data.user_id,
+        name=data.name,
+        content=data.content,
+    )
+    return _model_to_dict(prompt)
+
+
+@app.put("/api/ai/prompts/{prompt_id}")
+def update_ai_prompt(prompt_id: int, data: AiPromptUpdateInput):
+    _require_ai_enabled_user(data.user_id)
+    try:
+        prompt = svc.save_ai_prompt(
+            prompt_id,
+            user_id=data.user_id,
+            name=data.name,
+            content=data.content,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _model_to_dict(prompt)
+
+
+@app.delete("/api/ai/prompts/{prompt_id}")
+def delete_ai_prompt(prompt_id: int, user_id: int):
+    _require_ai_enabled_user(user_id)
+    svc.delete_ai_prompt(prompt_id, user_id=user_id)
+    return {"ok": True}
+
+
+@app.post("/api/ai/process")
+def process_note_with_ai(data: AiNoteProcessInput):
+    _require_ai_enabled_user(data.user_id)
+    model_path = AppSettings.load().llm_model_path.strip()
+    if not model_path:
+        raise HTTPException(status_code=400, detail="Kein GGUF-Modellpfad in den Einstellungen hinterlegt")
+    try:
+        result = svc.process_note_content_with_ai(
+            user_id=data.user_id,
+            prompt_id=data.prompt_id,
+            markdown_content=data.content,
+            model_path=model_path,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"processed_content": result}
+
+
 @app.get("/api/settings")
 def get_settings():
     s = AppSettings.load()
     return {
         "database_path": s.database_path,
         "theme": s.theme,
+        "llm_model_path": s.llm_model_path,
         "active_user_id": s.active_user_id,
         "resolved_database_path": str(s.resolved_database_path()),
+        "resolved_llm_model_path": str(s.resolved_llm_model_path()) if s.resolved_llm_model_path() else "",
     }
 
 
 @app.put("/api/settings")
 def update_settings(data: UpdateSettingsInput):
+    if data.llm_model_path.strip():
+        _require_ai_enabled_user(data.acting_user_id)
     s = AppSettings.load()
     s.database_path = data.database_path
     s.theme = data.theme
+    s.llm_model_path = data.llm_model_path
     s.save()
     return {
         "ok": True,
         "database_path": s.database_path,
         "theme": s.theme,
+        "llm_model_path": s.llm_model_path,
         "requires_restart": True,
     }
 

@@ -72,3 +72,43 @@ Falls der Build nicht startet:
 ## Hinweise zum aktuellen Stand
 
 Das Projekt ist auf den Runtime-Modus API + Vite bereinigt. Nicht genutzte Build- und Alt-Stacks wurden in den Archiv-Ordner verschoben.
+
+## Lokale AI-Notizverarbeitung (GGUF)
+
+- In den Einstellungen kann ein lokaler GGUF-Modellpfad gesetzt werden (`llm_model_path`).
+- Die Verarbeitung nutzt einen lokalen Adapter (`llama-cpp-python`, kein Cloud-API).
+- Standardprompts liegen in `docs/ai-prompts/*.txt` und werden pro AI-fähigem Benutzer als persönliche Prompts angelegt.
+- Nur Benutzer mit aktivierter Berechtigung **AI Funktionen** sehen AI-UI (Prompts, Modellpfad, Notiz-AI-Aktion).
+- Das Flag **AI Funktionen** ist nur im Admin-User-Management sichtbar und nur von Admins änderbar.
+
+### Setup
+
+1. Lokales GGUF-Modell bereitstellen.
+2. Optionales Backend-Paket installieren: `python -m pip install llama-cpp-python`
+3. In **Settings** den GGUF-Dateipfad setzen.
+4. In einer Notiz über **AI** einen Prompt wählen, Vorschau erzeugen und Ergebnis übernehmen.
+
+### Implementierungsskizze
+
+- Backend:
+  - `AppSettings` um `llm_model_path` erweitert
+  - User-Recht `can_use_ai_functions`
+  - Persönliche Prompt-Tabelle `ai_prompts`
+  - AI-Endpunkte: Prompt-CRUD + Notizverarbeitung
+  - Lokaler GGUF-Adapter: `src/dupkollabnotes/core/llm_service.py`
+- Frontend:
+  - AI-gesteuerte UI-Visibility per User-Flag
+  - Promptverwaltung in `SettingsPage`
+  - Notizverarbeitung mit Vorschau/Übernahme in `NoteViewer`
+
+### Copilot-ready Prompt (für weitere Iteration)
+
+```text
+Implement improvements for the local GGUF AI note-processing flow in Dupkollabnotes.
+Constraints:
+- Keep AI local-only (no cloud APIs).
+- Respect user flag can_use_ai_functions and admin-only flag changes.
+- Preserve per-user prompt isolation.
+- Add UX improvements only where AI flag is enabled.
+- Keep FastAPI + React architecture and make minimal, focused changes.
+```

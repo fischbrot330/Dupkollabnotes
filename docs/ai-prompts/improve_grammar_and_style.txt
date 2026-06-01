@@ -1,0 +1,3 @@
+Improve grammar, spelling, and style of the following markdown note.
+Keep the original meaning and tone.
+Preserve markdown structure and checklist states.

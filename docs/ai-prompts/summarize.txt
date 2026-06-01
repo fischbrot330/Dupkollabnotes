@@ -1,0 +1,3 @@
+Summarize the following markdown note in concise bullet points.
+Keep key decisions, tasks, and open questions.
+Return markdown only.

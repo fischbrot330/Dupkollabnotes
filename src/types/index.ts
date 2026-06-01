@@ -9,6 +9,7 @@ export interface User {
   can_manage_users: boolean;
   can_manage_projects: boolean;
   can_manage_templates: boolean;
+  can_use_ai_functions: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -311,6 +312,8 @@ export interface CreateUserInput {
   can_manage_users: boolean;
   can_manage_projects: boolean;
   can_manage_templates: boolean;
+  can_use_ai_functions?: boolean | null;
+  acting_user_id?: number | null;
 }
 
 export interface UpdateUserInput {
@@ -321,6 +324,8 @@ export interface UpdateUserInput {
   can_manage_users: boolean;
   can_manage_projects: boolean;
   can_manage_templates: boolean;
+  can_use_ai_functions?: boolean | null;
+  acting_user_id?: number | null;
   password: string | null;
 }
 
@@ -328,5 +333,20 @@ export interface AppSettingsDto {
   database_path: string;
   resolved_database_path: string;
   theme: string;
+  llm_model_path: string;
+  resolved_llm_model_path: string;
   active_user_id: number | null;
+}
+
+export interface AiPrompt {
+  id: number;
+  user_id: number;
+  name: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AiProcessResult {
+  processed_content: string;
 }

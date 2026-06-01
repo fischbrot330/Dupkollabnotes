@@ -5,8 +5,40 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base, Category, Project, Tag, Template, User
+from .models import AiPrompt, Base, Category, Project, Tag, Template, User
 from .security import hash_password
+
+DEFAULT_AI_PROMPTS = (
+    ("Translate to English", "translate_to_english.txt"),
+    ("Improve grammar and style", "improve_grammar_and_style.txt"),
+    ("Improve structure", "improve_structure.txt"),
+    ("Summarize", "summarize.txt"),
+)
+
+
+def _prompt_directory() -> Path:
+    return Path(__file__).resolve().parents[3] / "docs" / "ai-prompts"
+
+
+def _read_prompt_text(file_name: str) -> str:
+    return (_prompt_directory() / file_name).read_text(encoding="utf-8").strip()
+
+
+def ensure_default_ai_prompts_for_user(session: Session, user_id: int) -> None:
+    existing = {
+        name
+        for (name,) in session.query(AiPrompt.name).filter(AiPrompt.user_id == user_id)
+    }
+    for prompt_name, file_name in DEFAULT_AI_PROMPTS:
+        if prompt_name in existing:
+            continue
+        session.add(
+            AiPrompt(
+                user_id=user_id,
+                name=prompt_name,
+                content=_read_prompt_text(file_name),
+            )
+        )
 
 
 class DatabaseManager:
@@ -66,6 +98,10 @@ class DatabaseManager:
             if "assigned_to_id" not in todo_cols:
                 conn.exec_driver_sql("ALTER TABLE todos ADD COLUMN assigned_to_id INTEGER")
 
+            user_cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(users)")}
+            if "can_use_ai_functions" not in user_cols:
+                conn.exec_driver_sql("ALTER TABLE users ADD COLUMN can_use_ai_functions INTEGER NOT NULL DEFAULT 0")
+
 
 def seed_defaults(session: Session) -> None:
     if session.query(User).count() == 0:
@@ -78,6 +114,7 @@ def seed_defaults(session: Session) -> None:
                 can_manage_projects=True,
                 can_manage_templates=True,
                 can_manage_users=True,
+                can_use_ai_functions=True,
                 password_salt=salt,
                 password_hash=password_hash,
             )
@@ -123,3 +160,7 @@ def seed_defaults(session: Session) -> None:
                 owner_id=owner.id if owner else None,
             )
         )
+
+    ai_enabled_users = list(session.query(User).filter(User.can_use_ai_functions.is_(True)))
+    for user in ai_enabled_users:
+        ensure_default_ai_prompts_for_user(session, user.id)
