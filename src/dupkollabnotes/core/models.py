@@ -43,12 +43,14 @@ class User(Base, TimestampMixin):
     can_manage_projects: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     can_manage_templates: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     can_manage_users: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    can_use_ai_functions: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     password_salt: Mapped[str] = mapped_column(String(64), default="", nullable=False)
     password_hash: Mapped[str] = mapped_column(String(128), default="", nullable=False)
 
     notes: Mapped[list["Note"]] = relationship(back_populates="author", foreign_keys="Note.author_id")
     projects: Mapped[list["Project"]] = relationship(back_populates="owner")
     templates: Mapped[list["Template"]] = relationship(back_populates="creator")
+    ai_prompts: Mapped[list["AiPrompt"]] = relationship(back_populates="user")
 
 
 class Category(Base, TimestampMixin):
@@ -105,6 +107,18 @@ class Template(Base, TimestampMixin):
 
     category: Mapped[Category | None] = relationship(back_populates="templates")
     creator: Mapped[User | None] = relationship(back_populates="templates")
+
+
+class AiPrompt(Base, TimestampMixin):
+    __tablename__ = "ai_prompts"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_ai_prompts_user_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="ai_prompts")
 
 
 class Note(Base, TimestampMixin):

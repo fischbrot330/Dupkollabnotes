@@ -10,8 +10,9 @@ from jinja2 import BaseLoader, Environment
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from .database import DatabaseManager, seed_defaults
-from .models import Category, Note, Project, Tag, Template, TodoItem, UpdateItem, User
+from .database import DatabaseManager, ensure_default_ai_prompts_for_user, seed_defaults
+from .llm_service import LocalGgufLlmService
+from .models import AiPrompt, Category, Note, Project, Tag, Template, TodoItem, UpdateItem, User
 from .security import hash_password, verify_password
 
 
@@ -64,6 +65,7 @@ class PeriodFilter:
 class AppService:
     def __init__(self, database_manager: DatabaseManager):
         self.database_manager = database_manager
+        self.llm_service = LocalGgufLlmService()
         self.database_manager.ensure_parent_directory()
         self.database_manager.create_schema()
         with self.database_manager.session() as session:
@@ -104,6 +106,7 @@ class AppService:
         can_manage_projects: bool,
         can_manage_templates: bool,
         can_manage_users: bool,
+        can_use_ai_functions: bool,
         password: str | None = None,
     ) -> User:
         with self.session() as session:
@@ -115,11 +118,51 @@ class AppService:
             user.can_manage_projects = can_manage_projects
             user.can_manage_templates = can_manage_templates
             user.can_manage_users = can_manage_users
+            user.can_use_ai_functions = can_use_ai_functions
             if password:
                 user.password_salt, user.password_hash = hash_password(password)
             session.add(user)
+            session.flush()
+            if user.can_use_ai_functions:
+                ensure_default_ai_prompts_for_user(session, user.id)
             session.commit()
             return user
+
+    def list_ai_prompts(self, user_id: int) -> list[AiPrompt]:
+        with self.session() as session:
+            stmt = select(AiPrompt).where(AiPrompt.user_id == user_id).order_by(AiPrompt.name.asc())
+            return list(session.scalars(stmt))
+
+    def save_ai_prompt(self, prompt_id: int | None, *, user_id: int, name: str, content: str) -> AiPrompt:
+        with self.session() as session:
+            prompt = session.get(AiPrompt, prompt_id) if prompt_id else AiPrompt()
+            if prompt_id and (prompt is None or prompt.user_id != user_id):
+                raise ValueError("Prompt nicht gefunden")
+            prompt.user_id = user_id
+            prompt.name = name.strip()
+            prompt.content = content
+            session.add(prompt)
+            session.commit()
+            return prompt
+
+    def delete_ai_prompt(self, prompt_id: int, *, user_id: int) -> None:
+        with self.session() as session:
+            prompt = session.get(AiPrompt, prompt_id)
+            if prompt is None or prompt.user_id != user_id:
+                return
+            session.delete(prompt)
+            session.commit()
+
+    def process_note_content_with_ai(self, *, user_id: int, prompt_id: int, markdown_content: str, model_path: str) -> str:
+        with self.session() as session:
+            prompt = session.get(AiPrompt, prompt_id)
+            if prompt is None or prompt.user_id != user_id:
+                raise ValueError("Prompt nicht gefunden")
+            return self.llm_service.process_markdown(
+                model_path=model_path,
+                instruction=prompt.content,
+                markdown_content=markdown_content,
+            )
 
     def list_categories(self) -> list[Category]:
         with self.session() as session:

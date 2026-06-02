@@ -1,5 +1,7 @@
 // API-Client: kommuniziert per HTTP mit dem FastAPI-Backend (kein Tauri/Rust mehr)
 import type {
+  AiProcessResult,
+  AiPrompt,
   Category, Comment, CreateNoteInput, CreateProjectInput, CreateUserInput,
   DashboardData, MilestoneAllFilter, MilestoneFilter, NoteDetail, NoteFilter, NoteSummary, ProjectDetail,
   ProjectFilter, ProjectListFilter, ProjectSummary, Tag, Template, TodoItem, UpdateItem,
@@ -167,8 +169,24 @@ export const deleteTemplate = (id: number) =>
 export const getSettings = () =>
   api<AppSettingsDto>("GET", "/api/settings");
 
-export const updateSettings = (data: { database_path: string; theme: string }) =>
+export const updateSettings = (data: { database_path: string; theme: string; llm_model_path: string; acting_user_id?: number | null }) =>
   api<{ ok: boolean; requires_restart: boolean }>("PUT", "/api/settings", data);
+
+// AI
+export const listAiPrompts = (userId: number) =>
+  api<AiPrompt[]>("GET", `/api/ai/prompts?user_id=${userId}`);
+
+export const createAiPrompt = (data: { user_id: number; name: string; content: string }) =>
+  api<AiPrompt>("POST", "/api/ai/prompts", data);
+
+export const updateAiPrompt = (id: number, data: { user_id: number; name: string; content: string }) =>
+  api<AiPrompt>("PUT", `/api/ai/prompts/${id}`, data);
+
+export const deleteAiPrompt = (id: number, userId: number) =>
+  api<void>("DELETE", `/api/ai/prompts/${id}?user_id=${userId}`);
+
+export const processNoteWithAi = (data: { user_id: number; prompt_id: number; content: string }) =>
+  api<AiProcessResult>("POST", "/api/ai/process", data);
 
 // Dashboard
 export const dashboardSnapshot = (viewerId?: number | null) =>

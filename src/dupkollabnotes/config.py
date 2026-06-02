@@ -24,6 +24,7 @@ class AppSettings:
     database_path: str = str(default_database_path())
     active_user_id: int | None = None
     theme: str = "midnight"
+    llm_model_path: str = ""
 
     @classmethod
     def load(cls, path: Path | None = None) -> "AppSettings":
@@ -43,3 +44,9 @@ class AppSettings:
 
     def database_url(self) -> str:
         return f"sqlite+pysqlite:///{self.resolved_database_path().as_posix()}"
+
+    def resolved_llm_model_path(self) -> Path | None:
+        raw_path = self.llm_model_path.strip()
+        if not raw_path:
+            return None
+        return Path(raw_path).expanduser().resolve()

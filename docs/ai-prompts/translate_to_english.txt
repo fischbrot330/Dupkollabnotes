@@ -1,0 +1,3 @@
+Translate the following markdown note into clear and professional English.
+Preserve headings, bullet points, checklists, and markdown formatting.
+Do not add information that is not present in the source note.

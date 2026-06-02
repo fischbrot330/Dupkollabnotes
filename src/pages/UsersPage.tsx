@@ -27,16 +27,18 @@ export function UsersPage() {
   const [fManUsers, setFManUsers]   = useState(false);
   const [fManProjs, setFManProjs]   = useState(false);
   const [fManTpls, setFManTpls]     = useState(false);
+  const [fAiFunctions, setFAiFunctions] = useState(false);
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState<string | null>(null);
 
   const canManage = currentUser?.can_manage_users || currentUser?.role === "admin";
+  const isAdmin = currentUser?.role === "admin";
 
   useEffect(() => { api.listUsers().then(setUsers); }, []);
 
   function openCreate() {
     setFUsername(""); setFFullName(""); setFEmail(""); setFRole("viewer");
-    setFPassword(""); setFActive(true); setFManUsers(false); setFManProjs(false); setFManTpls(false);
+    setFPassword(""); setFActive(true); setFManUsers(false); setFManProjs(false); setFManTpls(false); setFAiFunctions(false);
     setEditUser(null); setError(null); setShowModal("create");
   }
 
@@ -44,6 +46,7 @@ export function UsersPage() {
     setFUsername(u.username); setFFullName(u.full_name); setFEmail(u.email ?? "");
     setFRole(u.role); setFPassword(""); setFActive(u.is_active);
     setFManUsers(u.can_manage_users); setFManProjs(u.can_manage_projects); setFManTpls(u.can_manage_templates);
+    setFAiFunctions(Boolean(u.can_use_ai_functions));
     setEditUser(u); setError(null); setShowModal("edit");
   }
 
@@ -55,12 +58,16 @@ export function UsersPage() {
           username: fUsername.trim(), full_name: fFullName.trim(), email: fEmail || null,
           role: fRole, password: fPassword,
           can_manage_users: fManUsers, can_manage_projects: fManProjs, can_manage_templates: fManTpls,
+          can_use_ai_functions: isAdmin ? fAiFunctions : undefined,
+          acting_user_id: currentUser?.id ?? null,
         };
         await api.createUser(d);
       } else if (showModal === "edit" && editUser) {
         const d: UpdateUserInput = {
           full_name: fFullName.trim(), email: fEmail || null, role: fRole, is_active: fActive,
           can_manage_users: fManUsers, can_manage_projects: fManProjs, can_manage_templates: fManTpls,
+          can_use_ai_functions: isAdmin ? fAiFunctions : undefined,
+          acting_user_id: currentUser?.id ?? null,
           password: fPassword || null,
         };
         await api.updateUser(editUser.id, d);
@@ -126,6 +133,7 @@ export function UsersPage() {
                       {u.can_manage_users    && <ShieldCheck size={13} className="text-accent" aria-label="Nutzerverwaltung" />}
                       {u.can_manage_projects && <ShieldCheck size={13} className="text-cyan-400" aria-label="Projektverwaltung" />}
                       {u.can_manage_templates && <Shield size={13} className="text-yellow-400" aria-label="Vorlagenverwaltung" />}
+                      {isAdmin && u.can_use_ai_functions && <Shield size={13} className="text-violet-400" aria-label="AI Funktionen" />}
                     </div>
                   </td>
                   {canManage && (
@@ -194,6 +202,12 @@ export function UsersPage() {
                 <input type="checkbox" checked={fManTpls} onChange={(e) => setFManTpls(e.target.checked)} className="accent-accent" />
                 Vorlagen
               </label>
+              {isAdmin && (
+                <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
+                  <input type="checkbox" checked={fAiFunctions} onChange={(e) => setFAiFunctions(e.target.checked)} className="accent-accent" />
+                  AI Funktionen
+                </label>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-2 px-5 py-3 border-t border-border bg-bg-surface rounded-b-xl">

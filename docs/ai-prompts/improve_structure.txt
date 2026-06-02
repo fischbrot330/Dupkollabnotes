@@ -1,0 +1,3 @@
+Improve the structure and readability of the following markdown note.
+Use clear headings, concise paragraphs, and bullet points where helpful.
+Do not invent new facts.
