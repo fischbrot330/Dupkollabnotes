@@ -126,40 +126,42 @@ export function NoteViewer({ note, currentUserId, canUseAiFunctions = false, onE
           </div>
 
           {/* Action buttons — only for owner */}
-          {isOwner && (
-            <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
-              {note.note_type === "todo" && !note.is_archived && (
-                <button onClick={() => onCompleteTask?.(note.id)} className="btn-sm btn-primary" title="Aufgabe abschließen">
-                  Erledigt
+          <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+            {canUseAiFunctions && (
+              <button onClick={() => setShowAiModal(true)} className="btn-sm btn-ghost" title="Notiz mit AI verarbeiten">
+                AI
+              </button>
+            )}
+            {isOwner && (
+              <>
+                {note.note_type === "todo" && !note.is_archived && !note.completed_at && (
+                  <button onClick={() => onCompleteTask?.(note.id)} className="btn-sm btn-primary" title="Aufgabe abschließen">
+                    Erledigt
+                  </button>
+                )}
+                <button
+                  onClick={() => onArchiveToggle?.(note.id)}
+                  className={`btn-sm ${note.is_user_archived ? "btn-primary" : "btn-ghost"}`}
+                  title={note.is_user_archived ? "Aus Archiv holen" : "Archivieren"}
+                >
+                  <Archive size={13} /> {note.is_user_archived ? "Entarchivieren" : "Archivieren"}
                 </button>
-              )}
-              <button
-                onClick={() => onArchiveToggle?.(note.id)}
-                className={`btn-sm ${note.is_user_archived ? "btn-primary" : "btn-ghost"}`}
-                title={note.is_user_archived ? "Aus Archiv holen" : "Archivieren"}
-              >
-                <Archive size={13} /> {note.is_user_archived ? "Entarchivieren" : "Archivieren"}
-              </button>
-              <button onClick={openInOutlook} className="btn-sm btn-ghost" title="Als Outlook-Mail öffnen">
-                <Mail size={13} /> Mail
-              </button>
-              {canUseAiFunctions && (
-                <button onClick={() => setShowAiModal(true)} className="btn-sm btn-ghost" title="Notiz mit AI verarbeiten">
-                  AI
+                <button onClick={openInOutlook} className="btn-sm btn-ghost" title="Als Outlook-Mail öffnen">
+                  <Mail size={13} /> Mail
                 </button>
-              )}
-              <button onClick={onEdit} className="btn-sm btn-primary">
-                <Pencil size={13} /> Bearbeiten
-              </button>
-              <button
-                onClick={onDelete}
-                className="btn-sm btn-danger"
-                title="Notiz löschen"
-              >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          )}
+                <button onClick={onEdit} className="btn-sm btn-primary">
+                  <Pencil size={13} /> Bearbeiten
+                </button>
+                <button
+                  onClick={onDelete}
+                  className="btn-sm btn-danger"
+                  title="Notiz löschen"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

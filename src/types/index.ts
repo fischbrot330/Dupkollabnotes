@@ -181,6 +181,23 @@ export interface DashboardData {
   upcoming_tasks?: NoteSummary[];
   notes_with_open_todos?: { note: NoteSummary; open_todos: number }[];
   projects_with_open_todos?: { project: ProjectSummary; open_todos: number }[];
+  tag_stats?: { id: number; name: string; color: string | null; count: number }[];
+  category_stats?: { category_name: string; count: number }[];
+  activity_events?: {
+    id: number;
+    title: string;
+    created_at?: string | null;
+    updated_at?: string | null;
+    completed_at?: string | null;
+    author_id?: number | null;
+    author_name?: string | null;
+    category_name?: string | null;
+    project_id?: number | null;
+    project_name?: string | null;
+    item_type: "note" | "todo" | "milestone" | "update";
+    status: "open" | "completed";
+  }[];
+  recent_completed_milestones?: NoteSummary[];
 }
 
 export interface MilestoneFilter {
@@ -200,6 +217,7 @@ export interface MilestoneAllFilter {
   start_date?: string | null;
   end_date?: string | null;
   viewer_id?: number | null;
+  include_archived?: boolean;
 }
 
 export interface NoteFilter {
@@ -212,14 +230,16 @@ export interface NoteFilter {
   tag_id: number | null;
   period?: "weekly" | "monthly" | "quarterly" | "custom";
   start_date?: string | null;
-  end_date?: string | null;  include_archived?: boolean;
+  end_date?: string | null;
+  include_archived?: boolean;
 }
 
 export interface ProjectListFilter {
   search?: string | null;
   status?: string | null;
   owner_id?: number | null;
-  include_archived?: boolean;}
+  include_archived?: boolean;
+}
 
 export interface AdvancedSearchFilter {
   query: string;

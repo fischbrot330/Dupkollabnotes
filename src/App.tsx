@@ -17,6 +17,15 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = useAppStore((s) => s.currentUser);
+  if (!user) return <Navigate to="/login" replace />;
+  if (!(user.role === "admin" || user.can_manage_users)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -37,8 +46,22 @@ export default function App() {
           <Route path="todos" element={<TodosPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="milestones" element={<MilestonesPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="admin" element={<UsersPage />} />
+          <Route
+            path="users"
+            element={
+              <AdminRoute>
+                <UsersPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="admin"
+            element={
+              <AdminRoute>
+                <UsersPage />
+              </AdminRoute>
+            }
+          />
           <Route path="meta" element={<MetaPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

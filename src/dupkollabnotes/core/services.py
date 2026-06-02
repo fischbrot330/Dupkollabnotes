@@ -201,7 +201,7 @@ class AppService:
                 selectinload(Note.template),
                 selectinload(Note.author),
                 selectinload(Note.tags),
-            ).where(Note.is_archived.is_(False))
+            ).where(or_(Note.is_archived.is_(False), Note.note_type == "todo"))
             if category_id is not None:
                 stmt = stmt.where(Note.category_id == category_id)
             if project_id is not None:
@@ -385,10 +385,10 @@ class AppService:
                 "milestones": session.scalar(select(func.count()).select_from(Note).where(Note.is_milestone.is_(True))) or 0,
             }
             pending_todos = session.scalar(
-                select(func.count()).select_from(Note).where(Note.note_type == "todo", Note.is_archived.is_(False))
+                select(func.count()).select_from(Note).where(Note.note_type == "todo", Note.completed_at.is_(None))
             ) or 0
             completed_todos = session.scalar(
-                select(func.count()).select_from(Note).where(Note.note_type == "todo", Note.is_archived.is_(True))
+                select(func.count()).select_from(Note).where(Note.note_type == "todo", Note.completed_at.is_not(None))
             ) or 0
             completed_milestones = session.scalar(
                 select(func.count()).select_from(Note).where(Note.is_milestone.is_(True), Note.is_archived.is_(True))
@@ -423,7 +423,7 @@ class AppService:
                 session.scalars(
                     select(Note)
                     .options(selectinload(Note.category), selectinload(Note.project), selectinload(Note.author), selectinload(Note.tags))
-                    .where(Note.note_type == "todo", Note.is_archived.is_(False), Note.due_date.is_not(None))
+                    .where(Note.note_type == "todo", Note.completed_at.is_(None), Note.due_date.is_not(None))
                     .order_by(Note.due_date.asc())
                     .limit(8)
                 )
@@ -433,7 +433,7 @@ class AppService:
                 session.execute(
                     select(Project, func.count(Note.id).label("open_count"))
                     .join(Note, Note.project_id == Project.id)
-                    .where(Note.note_type == "todo", Note.is_archived.is_(False))
+                    .where(Note.note_type == "todo", Note.completed_at.is_(None))
                     .group_by(Project.id)
                     .order_by(func.count(Note.id).desc())
                     .limit(8)
@@ -445,7 +445,7 @@ class AppService:
                 open_children = session.scalar(
                     select(func.count())
                     .select_from(Note)
-                    .where(Note.parent_note_id == parent.id, Note.note_type == "todo", Note.is_archived.is_(False))
+                    .where(Note.parent_note_id == parent.id, Note.note_type == "todo", Note.completed_at.is_(None))
                 ) or 0
                 if open_children > 0:
                     note_rows.append((parent, int(open_children)))

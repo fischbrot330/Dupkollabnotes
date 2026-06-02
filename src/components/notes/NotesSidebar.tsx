@@ -207,7 +207,7 @@ function NoteRow({
   dense?: boolean;
 }) {
   const isTodo = note.note_type === "todo";
-  const isDone = isTodo && note.is_archived;
+  const isDone = isTodo && Boolean(note.completed_at || note.is_archived);
   const isUserArchived = note.is_user_archived;
 
   // Subtle category color background

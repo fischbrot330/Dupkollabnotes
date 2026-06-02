@@ -34,11 +34,24 @@ Es gibt einen Workflow unter `.github/workflows/desktop-release.yml`.
 
 ### Empfohlener Rollout ueber GitHub (ohne Adminrechte auf Ziel-PCs)
 
+Der Workflow wird durch Tags im Format `v*` ausgeloest (z. B. `v0.2.0`).
+
 1. Lokale Aenderungen committen und pushen.
-2. Release-Tag setzen und pushen: `git tag v0.2.0` und `git push origin v0.2.0`.
+2. Release-Tag erstellen und pushen:
+	- `git tag -a v0.2.0 -m "SynkNote Release v0.2.0"`
+	- `git push origin v0.2.0`
 3. Workflow `Desktop Release` laeuft automatisch auf GitHub.
 4. Im GitHub Release steht danach `SynkNote-win64.zip` als Download bereit.
 5. Kolleg:innen laden ZIP, entpacken und starten `SynkNote.exe`.
+
+Kurzcheck nach dem Tag-Push:
+- Actions-Run ist `Success`.
+- Release-Asset `SynkNote-win64.zip` ist vorhanden.
+
+Falls der Build nicht startet:
+- Pruefen, ob der Tag mit `v` beginnt.
+- Pruefen, ob der Tag wirklich zu GitHub gepusht wurde.
+- Optional den Workflow manuell per `workflow_dispatch` starten.
 
 ## Ziele
 
@@ -59,3 +72,43 @@ Es gibt einen Workflow unter `.github/workflows/desktop-release.yml`.
 ## Hinweise zum aktuellen Stand
 
 Das Projekt ist auf den Runtime-Modus API + Vite bereinigt. Nicht genutzte Build- und Alt-Stacks wurden in den Archiv-Ordner verschoben.
+
+## Lokale AI-Notizverarbeitung (GGUF)
+
+- In den Einstellungen kann ein lokaler GGUF-Modellpfad gesetzt werden (`llm_model_path`).
+- Die Verarbeitung nutzt einen lokalen Adapter (`llama-cpp-python`, kein Cloud-API).
+- Standardprompts liegen in `docs/ai-prompts/*.txt` und werden pro AI-fähigem Benutzer als persönliche Prompts angelegt.
+- Nur Benutzer mit aktivierter Berechtigung **AI Funktionen** sehen AI-UI (Prompts, Modellpfad, Notiz-AI-Aktion).
+- Das Flag **AI Funktionen** ist nur im Admin-User-Management sichtbar und nur von Admins änderbar.
+
+### Setup
+
+1. Lokales GGUF-Modell bereitstellen.
+2. Optionales Backend-Paket installieren: `python -m pip install llama-cpp-python`
+3. In **Settings** den GGUF-Dateipfad setzen.
+4. In einer Notiz über **AI** einen Prompt wählen, Vorschau erzeugen und Ergebnis übernehmen.
+
+### Implementierungsskizze
+
+- Backend:
+  - `AppSettings` um `llm_model_path` erweitert
+  - User-Recht `can_use_ai_functions`
+  - Persönliche Prompt-Tabelle `ai_prompts`
+  - AI-Endpunkte: Prompt-CRUD + Notizverarbeitung
+  - Lokaler GGUF-Adapter: `src/dupkollabnotes/core/llm_service.py`
+- Frontend:
+  - AI-gesteuerte UI-Visibility per User-Flag
+  - Promptverwaltung in `SettingsPage`
+  - Notizverarbeitung mit Vorschau/Übernahme in `NoteViewer`
+
+### Copilot-ready Prompt (für weitere Iteration)
+
+```text
+Implement improvements for the local GGUF AI note-processing flow in Dupkollabnotes.
+Constraints:
+- Keep AI local-only (no cloud APIs).
+- Respect user flag can_use_ai_functions and admin-only flag changes.
+- Preserve per-user prompt isolation.
+- Add UX improvements only where AI flag is enabled.
+- Keep FastAPI + React architecture and make minimal, focused changes.
+```

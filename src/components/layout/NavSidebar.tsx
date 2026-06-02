@@ -6,11 +6,11 @@ import { useAppStore } from "../../store/useAppStore";
 
 const NAV = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/projects",  icon: FolderKanban,     label: "Projekte"  },
   { to: "/notes",     icon: FileText,         label: "Notizen"   },
   { to: "/todos",     icon: CheckSquare,      label: "Todos"     },
-  { to: "/search",    icon: Search,           label: "Search"    },
-  { to: "/projects",  icon: FolderKanban,     label: "Projekte"  },
   { to: "/milestones", icon: Milestone,       label: "Milestones" },
+  { to: "/search",    icon: Search,           label: "Search"    },
   { to: "/users",     icon: Users,            label: "Admin"     },
   { to: "/meta",      icon: Wrench,           label: "Meta"      },
   { to: "/settings",  icon: Settings,         label: "Settings"  },
@@ -19,22 +19,24 @@ const NAV = [
 export function NavSidebar() {
   const logout = useAppStore((s) => s.logout);
   const user   = useAppStore((s) => s.currentUser);
+  const canSeeUsers = Boolean(user && (user.role === "admin" || user.can_manage_users));
+  const navItems = NAV.filter((item) => item.to !== "/users" || canSeeUsers);
 
   return (
     <aside className="flex flex-col w-14 h-full bg-bg-surface border-r border-border shrink-0">
       {/* Logo */}
-      <div className="flex items-center justify-center h-12 border-b border-border shrink-0">
+      <div className="flex items-center justify-center h-[72px] border-b border-border shrink-0">
         <img
           src="/logo.png"
           alt="SynkNote"
-          className="w-8 h-8 object-contain select-none"
+          className="h-[56px] w-[56px] object-contain select-none"
           draggable={false}
         />
       </div>
 
       {/* Nav links */}
       <nav className="flex flex-col items-center gap-1 py-3 flex-1">
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}

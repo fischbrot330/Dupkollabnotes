@@ -55,6 +55,7 @@ export function MilestonesPage() {
   const [endDate, setEndDate] = useState("");
   const [authorId, setAuthorId] = useState<number | null>(null);
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [includeArchived, setIncludeArchived] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -86,6 +87,7 @@ export function MilestonesPage() {
         author_id: authorId,
         project_id: projectId,
         viewer_id: currentUser?.id ?? null,
+        include_archived: includeArchived,
       });
       setItems(list);
     } finally {
@@ -105,7 +107,7 @@ export function MilestonesPage() {
 
   useEffect(() => {
     loadMilestones();
-  }, [status, hasDate, period, authorId, projectId, currentUser?.id]);
+  }, [status, hasDate, period, authorId, projectId, includeArchived, currentUser?.id]);
 
   const exportHeading = useMemo(() => {
     const owner = authorId ? (users.find((u) => u.id === authorId)?.full_name ?? "Unbekannt") : "Alle Personen";
@@ -190,6 +192,14 @@ export function MilestonesPage() {
 
         <div className="flex items-center gap-2">
           <button className="btn-sm btn-primary" onClick={loadMilestones}>Anwenden</button>
+          <label className="inline-flex items-center gap-2 text-xs text-text-muted px-2">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+            />
+            Archivierte anzeigen
+          </label>
           <button
             className="btn-sm btn-ghost"
             onClick={() => {
@@ -201,6 +211,7 @@ export function MilestonesPage() {
               setEndDate("");
               setAuthorId(null);
               setProjectId(null);
+              setIncludeArchived(false);
             }}
           >
             Filter zurücksetzen
@@ -216,14 +227,16 @@ export function MilestonesPage() {
 
       {!loading && items.length > 0 && (
         <div className="space-y-3">
-          {items.map((item) => (
+          {items.map((item) => {
+            const isCompleted = Boolean(item.completed_at || item.is_archived);
+            return (
             <article key={item.id} className="card p-4">
               <div className="flex items-start justify-between gap-3">
                 <button className="text-left min-w-0 flex-1" onClick={() => navigate(`/notes?noteId=${item.id}`)}>
                   <p className="text-sm font-semibold text-text-primary truncate">{item.title}</p>
                   <p className="text-xs text-text-muted mt-1">{item.author_name ?? "Unbekannt"}</p>
                 </button>
-                <Badge variant={item.is_archived ? "default" : "update"}>{item.is_archived ? "abgeschlossen" : "offen"}</Badge>
+                <Badge variant={isCompleted ? "default" : "update"}>{isCompleted ? "abgeschlossen" : "offen"}</Badge>
               </div>
               <div className="flex items-center gap-2 mt-3 flex-wrap text-xs text-text-muted">
                 <span className="inline-flex items-center gap-1"><CalendarDays size={12} /> {fmtDate(item.milestone_date)}</span>
@@ -239,7 +252,7 @@ export function MilestonesPage() {
                 </button>
               )}
             </article>
-          ))}
+          );})}
         </div>
       )}
     </div>

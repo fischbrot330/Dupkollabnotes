@@ -13,6 +13,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 export function UsersPage() {
   const currentUser = useAppStore((s) => s.currentUser);
+  const login = useAppStore((s) => s.login);
   const [users, setUsers]     = useState<User[]>([]);
   const [showModal, setShowModal] = useState<"create" | "edit" | null>(null);
   const [editUser, setEditUser]   = useState<User | null>(null);
@@ -70,7 +71,10 @@ export function UsersPage() {
           acting_user_id: currentUser?.id ?? null,
           password: fPassword || null,
         };
-        await api.updateUser(editUser.id, d);
+        const updatedUser = await api.updateUser(editUser.id, d);
+        if (currentUser && updatedUser.id === currentUser.id) {
+          login(updatedUser);
+        }
       }
       const refreshed = await api.listUsers();
       setUsers(refreshed);

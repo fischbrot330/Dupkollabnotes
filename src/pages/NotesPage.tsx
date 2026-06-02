@@ -69,6 +69,17 @@ export function NotesPage() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    const tagIdRaw = searchParams.get("tagId");
+    if (!tagIdRaw) return;
+    const tagId = Number(tagIdRaw);
+    if (Number.isNaN(tagId)) return;
+    setFilter((prev) => ({
+      ...prev,
+      tag_id: tagId,
+    }));
+  }, [searchParams]);
+
   async function selectNote(id: number) {
     const detail = await api.getNote(id, currentUser?.id ?? null);
     setSelected(detail);

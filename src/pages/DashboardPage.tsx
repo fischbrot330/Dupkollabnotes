@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowUpRight,
+  BarChart3,
   CalendarClock,
   CheckSquare,
   FileText,
   FolderKanban,
+  Hash,
   Milestone,
   TrendingUp,
   Users,
@@ -144,6 +146,10 @@ export function DashboardPage() {
   const currentUser = useAppStore((s) => s.currentUser);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activityCategory, setActivityCategory] = useState<string>("all");
+  const [activityStatus, setActivityStatus] = useState<"all" | "open" | "completed">("all");
+  const [activityUser, setActivityUser] = useState<string>("all");
+  const [activitySort, setActivitySort] = useState<"count_desc" | "count_asc" | "category_asc">("count_desc");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -177,6 +183,67 @@ export function DashboardPage() {
   const pendingTodos = data?.pending_todos ?? 0;
   const todoCoverage = pendingTodos + completedTodos > 0 ? Math.round((completedTodos / (pendingTodos + completedTodos)) * 100) : 0;
   const openMilestones = (data?.total_milestones ?? 0) - (data?.completed_milestones ?? 0);
+
+  const tagStats = data?.tag_stats ?? [];
+  const categoryStats = data?.category_stats ?? [];
+  const completedMilestoneTimeline = data?.recent_completed_milestones ?? [];
+
+  const activityRows = useMemo(() => {
+    const events = data?.activity_events ?? [];
+    const filtered = events.filter((event) => {
+      if (activityCategory !== "all" && (event.category_name ?? "Ohne Kategorie") !== activityCategory) {
+        return false;
+      }
+      if (activityStatus !== "all" && event.status !== activityStatus) {
+        return false;
+      }
+      if (activityUser !== "all" && String(event.author_id ?? 0) !== activityUser) {
+        return false;
+      }
+      return true;
+    });
+
+    const grouped = new Map<string, { key: string; label: string; count: number; open: number; completed: number }>();
+    for (const event of filtered) {
+      const label = event.category_name ?? "Ohne Kategorie";
+      const row = grouped.get(label) ?? { key: label, label, count: 0, open: 0, completed: 0 };
+      row.count += 1;
+      if (event.status === "completed") row.completed += 1;
+      else row.open += 1;
+      grouped.set(label, row);
+    }
+
+    const rows = Array.from(grouped.values());
+    if (activitySort === "category_asc") {
+      rows.sort((a, b) => a.label.localeCompare(b.label, "de-DE"));
+    } else if (activitySort === "count_asc") {
+      rows.sort((a, b) => a.count - b.count || a.label.localeCompare(b.label, "de-DE"));
+    } else {
+      rows.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "de-DE"));
+    }
+    return rows;
+  }, [data?.activity_events, activityCategory, activityStatus, activityUser, activitySort]);
+
+  const activityMax = useMemo(
+    () => Math.max(1, ...activityRows.map((row) => row.count)),
+    [activityRows],
+  );
+
+  const availableActivityCategories = useMemo(() => {
+    const unique = new Set((data?.activity_events ?? []).map((event) => event.category_name ?? "Ohne Kategorie"));
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, "de-DE"));
+  }, [data?.activity_events]);
+
+  const availableActivityUsers = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const event of data?.activity_events ?? []) {
+      if (event.author_id == null) continue;
+      map.set(String(event.author_id), event.author_name ?? `User ${event.author_id}`);
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "de-DE"));
+  }, [data?.activity_events]);
 
   if (loading) return <div className="p-8 text-text-muted text-sm">Laden…</div>;
   if (!data) return <div className="p-8 text-red-400 text-sm">Fehler beim Laden</div>;
@@ -288,6 +355,34 @@ export function DashboardPage() {
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <div>
+              <h2 className="text-sm font-semibold text-text-primary inline-flex items-center gap-2"><Hash size={14} /> Tag-Cloud</h2>
+              <p className="text-xs text-text-muted mt-0.5">Häufigkeit nach Nutzung. Klick filtert direkt die Notizansicht.</p>
+            </div>
+            <button onClick={() => navigate("/notes")} className="text-xs text-accent hover:text-accent-hover inline-flex items-center gap-1">
+              Alle Notizen <ArrowUpRight size={12} />
+            </button>
+          </div>
+          <div className="p-4 flex flex-wrap gap-2">
+            {tagStats.length === 0 && <p className="text-xs text-text-muted">Noch keine Tag-Daten vorhanden.</p>}
+            {tagStats.slice(0, 45).map((tag) => {
+              const size = 12 + Math.min(18, Math.round((tag.count / Math.max(1, tagStats[0]?.count ?? 1)) * 18));
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => navigate(`/notes?tagId=${tag.id}`)}
+                  className="px-2.5 py-1 rounded-md border border-border hover:border-accent/40 hover:bg-bg-hover transition-colors"
+                  style={{ fontSize: `${size}px`, color: tag.color ?? undefined }}
+                >
+                  {tag.name} <span className="text-[10px] text-text-muted">{tag.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div>
               <h2 className="text-sm font-semibold text-text-primary inline-flex items-center gap-2"><FileText size={14} /> Notizen mit offenen Todos</h2>
               <p className="text-xs text-text-muted mt-0.5">Die Einträge mit der höchsten Arbeitslast</p>
             </div>
@@ -354,6 +449,82 @@ export function DashboardPage() {
         </div>
       </section>
 
+      <section className="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-4">
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <h2 className="text-sm font-semibold text-text-primary inline-flex items-center gap-2"><BarChart3 size={14} /> Notizen pro Kategorie</h2>
+            <p className="text-xs text-text-muted mt-0.5">Verteilung über alle sichtbaren Notizen</p>
+          </div>
+          <div className="p-4 space-y-2">
+            {categoryStats.length === 0 && <p className="text-xs text-text-muted">Keine Kategoriedaten vorhanden.</p>}
+            {categoryStats.slice(0, 10).map((row) => {
+              const max = categoryStats[0]?.count ?? 1;
+              const width = Math.max(8, Math.round((row.count / max) * 100));
+              return (
+                <div key={row.category_name}>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-text-secondary truncate">{row.category_name}</span>
+                    <span className="text-text-muted">{row.count}</span>
+                  </div>
+                  <div className="mt-1 h-2.5 rounded bg-bg-active overflow-hidden">
+                    <div className="h-full rounded bg-gradient-to-r from-sky-400 to-emerald-400" style={{ width: `${width}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <h2 className="text-sm font-semibold text-text-primary inline-flex items-center gap-2"><TrendingUp size={14} /> Aktivitaet nach Filter</h2>
+            <p className="text-xs text-text-muted mt-0.5">Filterbar nach Kategorie, Status und Nutzer</p>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+              <select title="Aktivitaet nach Kategorie" className="input-sm" value={activityCategory} onChange={(e) => setActivityCategory(e.target.value)}>
+                <option value="all">Alle Kategorien</option>
+                {availableActivityCategories.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+              <select title="Aktivitaet nach Status" className="input-sm" value={activityStatus} onChange={(e) => setActivityStatus(e.target.value as "all" | "open" | "completed")}>
+                <option value="all">Alle Stati</option>
+                <option value="open">Offen</option>
+                <option value="completed">Abgeschlossen</option>
+              </select>
+              <select title="Aktivitaet nach Nutzer" className="input-sm" value={activityUser} onChange={(e) => setActivityUser(e.target.value)}>
+                <option value="all">Alle Nutzer</option>
+                {availableActivityUsers.map((user) => (
+                  <option key={user.id} value={user.id}>{user.name}</option>
+                ))}
+              </select>
+              <select title="Aktivitaet Sortierung" className="input-sm" value={activitySort} onChange={(e) => setActivitySort(e.target.value as "count_desc" | "count_asc" | "category_asc")}>
+                <option value="count_desc">Sort: Hoechste zuerst</option>
+                <option value="count_asc">Sort: Niedrigste zuerst</option>
+                <option value="category_asc">Sort: Kategorie A-Z</option>
+              </select>
+            </div>
+          </div>
+          <div className="p-4 space-y-2 max-h-[360px] overflow-y-auto">
+            {activityRows.length === 0 && <p className="text-xs text-text-muted">Keine Daten fuer diese Filter.</p>}
+            {activityRows.slice(0, 20).map((row) => {
+              const width = Math.max(6, Math.round((row.count / activityMax) * 100));
+              return (
+                <div key={row.key} className="rounded border border-border/70 p-2.5 bg-bg-active/20">
+                  <div className="flex items-center justify-between text-xs gap-2">
+                    <span className="text-text-secondary truncate">{row.label}</span>
+                    <span className="text-text-muted">{row.count}</span>
+                  </div>
+                  <div className="mt-1.5 h-2 rounded bg-bg-active overflow-hidden">
+                    <div className="h-full rounded bg-gradient-to-r from-amber-400 to-sky-400" style={{ width: `${width}%` }} />
+                  </div>
+                  <div className="mt-1 text-[11px] text-text-muted">offen {row.open} · abgeschlossen {row.completed}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
@@ -399,6 +570,25 @@ export function DashboardPage() {
             <div className="rounded-lg border border-border/70 bg-bg-active/30 p-3">
               <p className="text-xs text-text-muted uppercase tracking-wider">Aktive Nutzer</p>
               <p className="text-2xl font-semibold text-sky-300 mt-1">{data.active_users}</p>
+            </div>
+          </div>
+          <div className="px-4 pb-4">
+            <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Zuletzt abgeschlossene Milestones</p>
+            <div className="space-y-2 max-h-[220px] overflow-y-auto">
+              {completedMilestoneTimeline.length === 0 && <p className="text-xs text-text-muted">Keine abgeschlossenen Milestones vorhanden.</p>}
+              {completedMilestoneTimeline.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => navigate(`/notes?noteId=${item.id}`)}
+                  className="w-full text-left rounded border border-border/70 p-2.5 hover:bg-bg-hover transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-text-primary truncate">{item.title}</span>
+                    <span className="text-[11px] text-emerald-400">{fmtDate(item.completed_at ?? item.updated_at)}</span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-text-muted truncate">{item.project_name ?? "ohne Projekt"} · {item.author_name ?? "unbekannt"}</p>
+                </button>
+              ))}
             </div>
           </div>
         </div>

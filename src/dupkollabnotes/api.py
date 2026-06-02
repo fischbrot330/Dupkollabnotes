@@ -190,6 +190,7 @@ class TodoBoardFilterInput(BaseModel):
     category_id: int | None = None
     project_id: int | None = None
     viewer_id: int | None = None
+    include_archived: bool = False
 
 class CreateNoteInput(BaseModel):
     title: str
@@ -279,6 +280,7 @@ class MilestoneAllFilterInput(BaseModel):
     start_date: str | None = None
     end_date: str | None = None
     viewer_id: int | None = None
+    include_archived: bool = False
 
 
 def _normalize_visibility(raw: str | None) -> str:
@@ -498,8 +500,8 @@ def _note_summary(note) -> dict:
             )
         )
     d["assigned_user_name"] = assigned_user_name
-    d["open_todos_count"] = sum(1 for c in children if c.note_type == "todo" and not c.is_archived)
-    d["done_todos_count"] = sum(1 for c in children if c.note_type == "todo" and c.is_archived)
+    d["open_todos_count"] = sum(1 for c in children if c.note_type == "todo" and c.completed_at is None and not c.is_archived)
+    d["done_todos_count"] = sum(1 for c in children if c.note_type == "todo" and (c.completed_at is not None or c.is_archived))
     d["new_comments_count"] = sum(1 for c in children if c.note_type == "comment" and not c.is_archived)
     d["feedback_count"] = sum(1 for c in children if c.note_type == "feedback" and not c.is_archived)
     d["questions_count"] = sum(1 for c in children if c.note_type == "question")
@@ -525,6 +527,7 @@ def list_notes(f: NoteFilter):
         for n in notes
         if (n.category.name.lower() not in hidden_categories if n.category else True)
         and _can_view_note(n, f.viewer_id)
+        and (f.tag_id is None or any(t.id == f.tag_id for t in n.tags))
         and (start is None or n.created_at >= start)
         and (end is None or n.created_at <= end)
         and (f.include_archived or not getattr(n, "is_user_archived", False))
@@ -1040,7 +1043,7 @@ def complete_task_note(note_id: int, data: CompleteTaskInput):
         note = session.get(Note, note_id)
         if not note:
             raise HTTPException(status_code=404, detail="Aufgaben-Notiz nicht gefunden")
-        note.is_archived = True
+        note.is_archived = False
         note.completed_at = datetime.utcnow()
         if data.author_id is not None:
             note.author_id = data.author_id
@@ -1138,14 +1141,19 @@ def list_todo_board(data: TodoBoardFilterInput):
 
     status = (data.status or "all").lower()
     if status == "open":
-        stmt = stmt.where(Note.is_archived.is_(False))
+        stmt = stmt.where(Note.completed_at.is_(None))
     elif status == "done":
-        stmt = stmt.where(Note.is_archived.is_(True))
+        stmt = stmt.where(or_(Note.completed_at.is_not(None), Note.is_archived.is_(True)))
 
     with svc.session() as session:
         tasks = list(session.scalars(stmt.order_by(Note.due_date.asc().nullslast(), Note.updated_at.desc())))
 
-    return [_note_summary(t) for t in tasks if _can_view_note(t, data.viewer_id)]
+    return [
+        _note_summary(t)
+        for t in tasks
+        if _can_view_note(t, data.viewer_id)
+        and (data.include_archived or not getattr(t, "is_user_archived", False))
+    ]
 
 @app.post("/api/todos/{todo_id}/toggle")
 def toggle_todo(todo_id: int):
@@ -1470,7 +1478,12 @@ def list_all_milestones(data: MilestoneAllFilterInput):
 
         milestones = list(session.scalars(stmt.order_by(Note.updated_at.desc())))
 
-    return [_note_summary(n) for n in milestones if _can_view_note(n, data.viewer_id)]
+    return [
+        _note_summary(n)
+        for n in milestones
+        if _can_view_note(n, data.viewer_id)
+        and (data.include_archived or not getattr(n, "is_user_archived", False))
+    ]
 
 
 @app.get("/api/ai/prompts")
@@ -1571,7 +1584,7 @@ def update_settings(data: UpdateSettingsInput):
 
 @app.get("/api/dashboard")
 def dashboard(viewer_id: int | None = None):
-    from .core.models import User as UserModel, Project as ProjectModel
+    from .core.models import User as UserModel, Project as ProjectModel, Note as NoteModel
     from sqlalchemy import select, func
     from sqlalchemy.orm import selectinload
     snap = svc.dashboard_snapshot()
@@ -1593,10 +1606,86 @@ def dashboard(viewer_id: int | None = None):
         ))
         project_summaries = [_project_summary(p) for p in recent_projects]
 
+        analytics_notes = list(session.scalars(
+            select(NoteModel)
+            .options(
+                selectinload(NoteModel.tags),
+                selectinload(NoteModel.category),
+                selectinload(NoteModel.author),
+                selectinload(NoteModel.project),
+            )
+            .where(NoteModel.parent_note_id.is_(None))
+            .order_by(NoteModel.updated_at.desc())
+            .limit(2000)
+        ))
+
     visible_recent_notes = [n for n in snap["notes"] if _can_view_note(n, viewer_id)]
     visible_upcoming_milestones = [n for n in snap["upcoming_milestones"] if _can_view_note(n, viewer_id)]
     visible_upcoming_tasks = [n for n in snap["upcoming_tasks"] if _can_view_note(n, viewer_id)]
     visible_notes_with_open_todos = [item for item in snap["notes_with_open_todos"] if _can_view_note(item[0], viewer_id)]
+    visible_analytics_notes = [n for n in analytics_notes if _can_view_note(n, viewer_id) and not getattr(n, "is_user_archived", False)]
+
+    tag_map: dict[int, dict] = {}
+    category_counts: dict[str, int] = {}
+    activity_events: list[dict] = []
+
+    for note in visible_analytics_notes:
+        category_name = note.category.name if note.category else "Ohne Kategorie"
+        category_counts[category_name] = category_counts.get(category_name, 0) + 1
+
+        for tag in note.tags:
+            current = tag_map.get(tag.id)
+            if current is None:
+                tag_map[tag.id] = {
+                    "id": tag.id,
+                    "name": tag.name,
+                    "color": tag.color,
+                    "count": 1,
+                }
+            else:
+                current["count"] += 1
+
+        if note.is_milestone:
+            item_type = "milestone"
+        elif note.note_type == "todo":
+            item_type = "todo"
+        elif note.note_type == "update":
+            item_type = "update"
+        else:
+            item_type = "note"
+
+        status = "completed" if note.completed_at is not None or note.is_archived else "open"
+
+        activity_events.append({
+            "id": note.id,
+            "title": note.title,
+            "created_at": note.created_at.isoformat() if note.created_at else None,
+            "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+            "completed_at": note.completed_at.isoformat() if note.completed_at else None,
+            "author_id": note.author_id,
+            "author_name": note.author.full_name if note.author else None,
+            "category_name": category_name,
+            "project_id": note.project_id,
+            "project_name": note.project.name if note.project else None,
+            "item_type": item_type,
+            "status": status,
+        })
+
+    tag_stats = sorted(tag_map.values(), key=lambda x: (-x["count"], x["name"].lower()))[:80]
+    category_stats = [
+        {"category_name": name, "count": count}
+        for name, count in sorted(category_counts.items(), key=lambda x: (-x[1], x[0].lower()))
+    ]
+
+    recent_completed_milestones = [
+        _note_summary(n)
+        for n in visible_analytics_notes
+        if n.is_milestone and n.is_archived
+    ]
+    recent_completed_milestones.sort(
+        key=lambda n: n.get("completed_at") or n.get("updated_at") or "",
+        reverse=True,
+    )
 
     return {
         "total_notes": totals["notes"],
@@ -1618,6 +1707,10 @@ def dashboard(viewer_id: int | None = None):
             {"project": _project_summary(row[0]), "open_todos": int(row[1])}
             for row in snap["projects_with_open_todos"]
         ],
+        "tag_stats": tag_stats,
+        "category_stats": category_stats,
+        "activity_events": activity_events[:1200],
+        "recent_completed_milestones": recent_completed_milestones[:20],
     }
 
 

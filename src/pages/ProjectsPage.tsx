@@ -170,11 +170,11 @@ export function ProjectsPage() {
 
       if (showProjectModal === "create") {
         const created = await api.createProject(payload);
-        const loaded = await api.getProject(created.id, currentUser?.id ?? null);
+        const loaded = await api.getProject(created.id, currentUser?.id ?? null, includeArchived);
         setSelected(loaded);
       } else if (showProjectModal === "edit" && selected) {
         const updated = await api.updateProject(selected.id, payload);
-        const loaded = await api.getProject(updated.id, currentUser?.id ?? null);
+        const loaded = await api.getProject(updated.id, currentUser?.id ?? null, includeArchived);
         setSelected(loaded);
       }
 
@@ -215,7 +215,7 @@ export function ProjectsPage() {
     try {
       await api.completeTaskNote(noteId, currentUser?.id ?? null);
       if (selected) {
-        const refreshed = await api.getProject(selected.id, currentUser?.id ?? null);
+        const refreshed = await api.getProject(selected.id, currentUser?.id ?? null, includeArchived);
         setSelected(refreshed);
       }
       await loadProjects();
@@ -231,7 +231,7 @@ export function ProjectsPage() {
         completed_at: new Date().toISOString(),
       });
       if (selected) {
-        const refreshed = await api.getProject(selected.id, currentUser?.id ?? null);
+        const refreshed = await api.getProject(selected.id, currentUser?.id ?? null, includeArchived);
         setSelected(refreshed);
       }
       await loadProjects();
@@ -266,7 +266,7 @@ export function ProjectsPage() {
       note_type: data.note_type ?? noteType,
       visibility: data.visibility ?? "team",
     });
-    const refreshed = await api.getProject(selected.id, currentUser?.id ?? null);
+    const refreshed = await api.getProject(selected.id, currentUser?.id ?? null, includeArchived);
     setSelected(refreshed);
     await loadProjects();
   }

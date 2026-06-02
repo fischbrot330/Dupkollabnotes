@@ -37,6 +37,7 @@ export function TodosPage() {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [authorId, setAuthorId] = useState<number | null>(null);
   const [groupBy, setGroupBy] = useState<"date" | "project" | "category">("date");
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export function TodosPage() {
         category_id: categoryId,
         project_id: projectId,
         viewer_id: currentUser?.id ?? null,
+        include_archived: includeArchived,
       });
       setTodos(list);
     } finally {
@@ -69,7 +71,11 @@ export function TodosPage() {
 
   useEffect(() => {
     loadTodos();
-  }, [projectId, categoryId, authorId, search, currentUser?.id]);
+  }, [projectId, categoryId, authorId, search, includeArchived, currentUser?.id]);
+
+  function isDone(todo: NoteSummary) {
+    return Boolean(todo.completed_at || todo.is_archived);
+  }
 
   const visibleTodos = useMemo(
     () => todos.filter((t) => (authorId == null ? true : t.author_id === authorId)),
@@ -83,7 +89,7 @@ export function TodosPage() {
       (t) => {
         if (groupBy === "project") return t.project_name || "Ohne Projekt";
         if (groupBy === "category") return t.category_name || "Ohne Kategorie";
-        const anchor = t.is_archived ? t.completed_at : t.due_date ?? t.completed_at ?? t.updated_at ?? t.created_at ?? null;
+        const anchor = isDone(t) ? t.completed_at : t.due_date ?? t.completed_at ?? t.updated_at ?? t.created_at ?? null;
         return getDateBucket(anchor);
       },
       (key) => key,
@@ -95,17 +101,17 @@ export function TodosPage() {
     return groups;
   }
 
-  const openTodos = useMemo(() => visibleTodos.filter((t) => !t.is_archived), [visibleTodos]);
-  const doneTodos = useMemo(() => visibleTodos.filter((t) => !!t.is_archived), [visibleTodos]);
+  const openTodos = useMemo(() => visibleTodos.filter((t) => !isDone(t)), [visibleTodos]);
+  const doneTodos = useMemo(() => visibleTodos.filter((t) => isDone(t)), [visibleTodos]);
 
   const openGrouped = useMemo(() => makeGroups(openTodos), [openTodos, groupBy]);
   const doneGrouped = useMemo(() => makeGroups(doneTodos), [doneTodos, groupBy]);
 
   const stats = useMemo(() => {
-    const open = visibleTodos.filter((t) => !t.is_archived);
+    const open = visibleTodos.filter((t) => !isDone(t));
     return {
       open: open.length,
-      done: visibleTodos.filter((t) => !!t.is_archived).length,
+      done: visibleTodos.filter((t) => isDone(t)).length,
       overdue: open.filter((t) => isOverdue(t.due_date)).length,
       dueSoon: open.filter((t) => t.due_date && !isOverdue(t.due_date) && new Date(t.due_date).getTime() - Date.now() <= 3 * 24 * 3600 * 1000).length,
       withoutDate: open.filter((t) => !t.due_date).length,
@@ -170,6 +176,14 @@ export function TodosPage() {
           <button className={`btn-sm ${groupBy === "project" ? "btn-primary" : "btn-ghost"}`} onClick={() => setGroupBy("project")}>Nach Projekt</button>
           <button className={`btn-sm ${groupBy === "category" ? "btn-primary" : "btn-ghost"}`} onClick={() => setGroupBy("category")}>Nach Kategorie</button>
           <button className="btn-sm btn-ghost ml-auto" onClick={loadTodos}>Aktualisieren</button>
+          <label className="inline-flex items-center gap-2 text-xs text-text-muted px-2">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+            />
+            Archivierte anzeigen
+          </label>
           <button className="btn-sm btn-ghost" onClick={() => { setSearch(""); setProjectId(null); setCategoryId(null); setAuthorId(null); }}>Reset</button>
         </div>
       </div>
@@ -229,6 +243,8 @@ function TodoGroup({
   completeTodo: (todo: import("../types").NoteSummary) => Promise<void>;
   isOpen: boolean;
 }) {
+  const isDone = (todo: import("../types").NoteSummary) => Boolean(todo.completed_at || todo.is_archived);
+
   return (
     <section className="card overflow-hidden">
       <div className="px-3 py-1.5 border-b border-border flex items-center gap-2">
@@ -243,21 +259,21 @@ function TodoGroup({
               <button
                 className="mt-0.5 shrink-0"
                 title={todo.is_archived ? "Bereits erledigt" : "Als erledigt markieren"}
-                onClick={() => !todo.is_archived && completeTodo(todo)}
+                onClick={() => !isDone(todo) && completeTodo(todo)}
               >
-                <CheckSquare size={15} className={todo.is_archived ? "text-emerald-400" : "text-text-muted hover:text-emerald-400"} />
+                <CheckSquare size={15} className={isDone(todo) ? "text-emerald-400" : "text-text-muted hover:text-emerald-400"} />
               </button>
               <button className="text-left min-w-0 flex-1" onClick={() => navigate(`/notes?noteId=${todo.id}`)}>
-                <p className={`text-sm ${todo.is_archived ? "line-through text-text-muted" : "text-text-primary"}`}>{todo.title}</p>
+                <p className={`text-sm ${isDone(todo) ? "line-through text-text-muted" : "text-text-primary"}`}>{todo.title}</p>
                 <div className="mt-0.5 text-[11px] text-text-muted flex items-center gap-1.5 flex-wrap">
                   {todo.author_name && <span>{todo.author_name}</span>}
                   {todo.project_name && <span>• {todo.project_name}</span>}
                   {todo.due_date && (
-                    <span className={`inline-flex items-center gap-1 ${isOverdue(todo.due_date) && !todo.is_archived ? "text-red-300" : todo.is_archived ? "text-emerald-400" : "text-sky-300"}`}>
+                    <span className={`inline-flex items-center gap-1 ${isOverdue(todo.due_date) && !isDone(todo) ? "text-red-300" : isDone(todo) ? "text-emerald-400" : "text-sky-300"}`}>
                       <Clock3 size={10} /> {fmtDate(todo.due_date)}
                     </span>
                   )}
-                  {todo.is_archived && todo.completed_at && (
+                  {isDone(todo) && todo.completed_at && (
                     <span className="text-emerald-400">✓ {fmtDate(todo.completed_at)}</span>
                   )}
                 </div>

@@ -27,10 +27,10 @@ try {
     Write-Host 'Erstelle Desktop-Bundle (PyInstaller)...'
     $pyInstallerExe = Join-Path $projectRoot '.venv\Scripts\pyinstaller.exe'
     if (Test-Path $pyInstallerExe) {
-        & $pyInstallerExe --noconfirm --clean --name SynkNote --windowed --icon .\build-assets\synknote.ico --collect-all webview --add-data 'dist;dist' --paths src src/dupkollabnotes/desktop.py
+        & $pyInstallerExe --noconfirm --clean --name SynkNote --windowed --icon .\build-assets\synknote.ico --collect-all webview --collect-all llama_cpp --add-data 'dist;dist' --paths src src/dupkollabnotes/desktop.py
     }
     else {
-        & $pythonExe -m PyInstaller --noconfirm --clean --name SynkNote --windowed --icon .\build-assets\synknote.ico --collect-all webview --add-data 'dist;dist' --paths src src/dupkollabnotes/desktop.py
+        & $pythonExe -m PyInstaller --noconfirm --clean --name SynkNote --windowed --icon .\build-assets\synknote.ico --collect-all webview --collect-all llama_cpp --add-data 'dist;dist' --paths src src/dupkollabnotes/desktop.py
     }
 
     $releaseRoot = Join-Path $projectRoot 'release'

@@ -105,6 +105,7 @@ export const listTodoBoard = (filter: {
   category_id?: number | null;
   project_id?: number | null;
   viewer_id?: number | null;
+  include_archived?: boolean;
 }) => api<NoteSummary[]>("POST", "/api/todos/board", filter);
 
 export const toggleTodo = (id: number) =>
